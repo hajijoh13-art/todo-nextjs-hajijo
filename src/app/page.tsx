@@ -1,65 +1,136 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from "react";
+
+type Filter = "all" | "active" | "done";
+
+interface Task {
+  id: number;
+  text: string;
+  done: boolean;
+}
 
 export default function Home() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [input, setInput] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("tasks");
+    if (saved) setTasks(JSON.parse(saved));
+  }, []);
+
+  const save = (next: Task[]) => {
+    setTasks(next);
+    localStorage.setItem("tasks", JSON.stringify(next));
+  };
+
+  const addTask = () => {
+    const text = input.trim();
+    if (!text) return;
+    save([{ id: Date.now(), text, done: false }, ...tasks]);
+    setInput("");
+  };
+
+  const toggle = (id: number) =>
+    save(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+
+  const remove = (id: number) => save(tasks.filter((t) => t.id !== id));
+
+  const clearDone = () => save(tasks.filter((t) => !t.done));
+
+  const visible = tasks.filter((t) =>
+    filter === "all" ? true : filter === "done" ? t.done : !t.done
+  );
+
+  const activeCount = tasks.filter((t) => !t.done).length;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <main className="min-h-screen bg-gray-100 flex justify-center px-4 py-16">
+      <div className="w-full max-w-lg">
+        <h1 className="text-3xl font-bold text-gray-800 mb-6">📝 TODO</h1>
+
+        {/* 入力欄 */}
+        <div className="flex gap-2 mb-4">
+          <input
+            className="flex-1 px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-400 outline-none bg-white text-gray-800 transition"
+            placeholder="新しいタスクを入力..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addTask()}
+          />
+          <button
+            onClick={addTask}
+            className="px-5 py-3 bg-indigo-500 hover:bg-indigo-600 active:scale-95 text-white rounded-xl text-xl font-bold transition"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            ＋
+          </button>
         </div>
-      </main>
-    </div>
+
+        {/* フィルター */}
+        <div className="flex gap-2 mb-4">
+          {(["all", "active", "done"] as Filter[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-4 py-1.5 rounded-full text-sm border-2 transition font-medium ${
+                filter === f
+                  ? "bg-indigo-500 border-indigo-500 text-white"
+                  : "bg-white border-gray-200 text-gray-500 hover:border-indigo-300"
+              }`}
+            >
+              {f === "all" ? "すべて" : f === "active" ? "未完了" : "完了"}
+            </button>
+          ))}
+        </div>
+
+        {/* タスク一覧 */}
+        <div className="flex flex-col gap-2">
+          {visible.length === 0 ? (
+            <p className="text-center text-gray-400 py-10">タスクがありません</p>
+          ) : (
+            visible.map((task) => (
+              <div
+                key={task.id}
+                className="flex items-center gap-3 bg-white rounded-xl px-4 py-3 shadow-sm"
+              >
+                <input
+                  type="checkbox"
+                  checked={task.done}
+                  onChange={() => toggle(task.id)}
+                  className="w-5 h-5 accent-indigo-500 cursor-pointer flex-shrink-0"
+                />
+                <span
+                  className={`flex-1 text-base break-all ${
+                    task.done ? "line-through text-gray-400" : "text-gray-800"
+                  }`}
+                >
+                  {task.text}
+                </span>
+                <button
+                  onClick={() => remove(task.id)}
+                  className="text-gray-300 hover:text-red-400 hover:bg-red-50 rounded-md px-1.5 py-0.5 transition text-lg leading-none"
+                >
+                  ✕
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* フッター */}
+        {tasks.length > 0 && (
+          <div className="flex justify-between items-center mt-4 text-sm text-gray-400 px-1">
+            <span>残り {activeCount} 件 / 全 {tasks.length} 件</span>
+            <button
+              onClick={clearDone}
+              className="underline hover:text-red-400 transition"
+            >
+              完了済みを削除
+            </button>
+          </div>
+        )}
+      </div>
+    </main>
   );
 }
